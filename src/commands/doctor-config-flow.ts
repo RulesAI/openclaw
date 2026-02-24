@@ -1554,7 +1554,7 @@ export async function loadAndMaybeMigrateDoctorConfig(params: {
   return {
     cfg,
     path: snapshot.path ?? CONFIG_PATH,
-    shouldWriteConfig,
+    shouldWriteConfig: shouldWriteConfig || (shouldRepair && pendingChanges),
     sourceConfigValid: snapshot.valid,
   };
 }
