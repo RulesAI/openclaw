@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fsSync from "node:fs";
+import type { Agent } from "node:https";
+import { createRequire } from "node:module";
 import {
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -12,7 +14,6 @@ import { formatCliCommand } from "../cli/command-format.js";
 import { danger, success } from "../globals.js";
 import { getChildLogger, toPinoLikeLogger } from "../logging.js";
 import { ensureDir, resolveUserPath } from "../utils.js";
-import { VERSION } from "../version.js";
 import {
   maybeRestoreCredsFromBackup,
   readCredsJsonRaw,
@@ -30,6 +31,42 @@ export {
   WA_WEB_AUTH_DIR,
   webAuthExists,
 } from "./auth-store.js";
+
+const require = createRequire(import.meta.url);
+const OPENCLAW_PACKAGE_NAME = "openclaw";
+const PACKAGE_JSON_VERSION_CANDIDATES = [
+  "../package.json",
+  "../../package.json",
+  "../../../package.json",
+  "./package.json",
+] as const;
+
+function resolveWaBrowserVersion(): string {
+  const envVersion =
+    process.env.OPENCLAW_BUNDLED_VERSION?.trim() ||
+    process.env.OPENCLAW_VERSION?.trim() ||
+    process.env.OPENCLAW_SERVICE_VERSION?.trim() ||
+    process.env.npm_package_version?.trim();
+  if (envVersion) {
+    return envVersion;
+  }
+
+  for (const candidate of PACKAGE_JSON_VERSION_CANDIDATES) {
+    try {
+      const parsed = require(candidate) as { name?: string; version?: string };
+      const version = parsed.version?.trim();
+      if (!version || parsed.name !== OPENCLAW_PACKAGE_NAME) {
+        continue;
+      }
+      return version;
+    } catch {
+      // Ignore missing candidates in packaged layouts.
+    }
+  }
+  return "0.0.0";
+}
+
+const WA_BROWSER_VERSION = resolveWaBrowserVersion();
 
 let credsSaveQueue: Promise<void> = Promise.resolve();
 function enqueueSaveCreds(
@@ -84,6 +121,36 @@ async function safeSaveCreds(
 }
 
 /**
+ * Resolve an HTTPS proxy agent for the WhatsApp WebSocket connection.
+ * Reads from env vars HTTPS_PROXY / HTTP_PROXY / ALL_PROXY.
+ * Returns undefined when no proxy is configured.
+ */
+function resolveProxyAgent(): Agent | undefined {
+  const proxyUrl =
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
+    process.env.ALL_PROXY ||
+    process.env.all_proxy;
+
+  if (!proxyUrl) {
+    return undefined;
+  }
+
+  try {
+    const { HttpsProxyAgent } = require("https-proxy-agent") as {
+      HttpsProxyAgent: new (url: string) => Agent;
+    };
+    const sessionLogger = getChildLogger({ module: "web-session" });
+    sessionLogger.info({ proxy: proxyUrl }, "Using HTTP proxy for WhatsApp WebSocket");
+    return new HttpsProxyAgent(proxyUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Create a Baileys socket backed by the multi-file auth store we keep on disk.
  * Consumers can opt into QR printing for interactive login flows.
  */
@@ -105,6 +172,7 @@ export async function createWaSocket(
   maybeRestoreCredsFromBackup(authDir);
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
+  const proxyAgent = resolveProxyAgent();
   const sock = makeWASocket({
     auth: {
       creds: state.creds,
@@ -113,9 +181,10 @@ export async function createWaSocket(
     version,
     logger,
     printQRInTerminal: false,
-    browser: ["openclaw", "cli", VERSION],
+    browser: ["openclaw", "cli", WA_BROWSER_VERSION],
     syncFullHistory: false,
     markOnlineOnConnect: false,
+    ...(proxyAgent && { agent: proxyAgent, fetchAgent: proxyAgent }),
   });
 
   sock.ev.on("creds.update", () => enqueueSaveCreds(authDir, saveCreds, sessionLogger));
