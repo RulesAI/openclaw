@@ -3,8 +3,37 @@
 - Repo: https://github.com/openclaw/openclaw
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
 - GitHub comment footgun: never use `gh issue/pr comment -b "..."` when body contains backticks or shell chars. Always use single-quoted heredoc (`-F - <<'EOF'`) so no command substitution/escaping corruption.
-- GitHub linking footgun: don’t wrap issue/PR refs like `#24643` in backticks when you want auto-linking. Use plain `#24643` (optionally add full URL).
+- GitHub linking footgun: don't wrap issue/PR refs like `#24643` in backticks when you want auto-linking. Use plain `#24643` (optionally add full URL).
 - Security advisory analysis: before triage/severity decisions, read `SECURITY.md` to align with OpenClaw's trust model and design boundaries.
+
+## Environment Configuration
+
+**Production Environment: 极空间 NAS**
+
+- **Host**: 192.168.3.185:10000 (SSH)
+- **User**: 13911033691
+- **Container**: openclaw-gateway (Docker)
+- **OpenClaw Path**: `/home/node/.openclaw` (inside container)
+- **Data Path**: `/data_ZR5D8EL4/openclaw` (NAS host)
+- **Network**: openclaw-net (Docker network with Clash proxy)
+- **Proxy**: Clash container (US node for Google Gemini API access)
+- **SSH Access**: SSH key configured, use `sshpass -p 'Simon2028' ssh -p 10000 13911033691@192.168.3.185` for direct access
+- **Container Exec**: `sudo docker exec openclaw-gateway <command>`
+
+**Development Environment: Mac Local**
+
+- **Purpose**: OpenClaw code optimization and development ONLY
+- **Do NOT**: Run actual OpenClaw gateway or agents on Mac
+- **Skills Location**: `~/.openclaw/skills/` (sync to NAS when needed)
+- **Build/Test**: Mac is for building, testing, and preparing code before deploying to NAS
+
+**Key Guidelines**:
+
+- All agent operations, scheduled tasks, and production workflows run on the NAS
+- Mac is for code development, building the Mac app, and repository management
+- When fixing issues or deploying changes, always target the NAS environment
+- Skills and configurations must be synced from Mac to NAS after changes
+- Use SSH to access and manage the NAS OpenClaw installation
 
 ## Project Structure & Module Organization
 
