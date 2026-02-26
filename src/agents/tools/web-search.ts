@@ -1172,17 +1172,65 @@ async function runWebSearch(params: {
     throw new Error("Unsupported web search provider.");
   }
 
+  // Map common ISO language codes to Brave-compatible formats
+  const normalizeBraveSearchLang = (lang: string | undefined): string | undefined => {
+    if (!lang) {
+      return undefined;
+    }
+    const normalized = lang.toLowerCase();
+    const mapping: Record<string, string> = {
+      zh: "zh-hans", // Default Chinese to Simplified
+      "zh-cn": "zh-hans",
+      "zh-tw": "zh-hant",
+      "zh-hk": "zh-hant",
+      pt: "pt-pt",
+      en: "en",
+      ja: "jp", // Brave uses "jp" instead of "ja"
+      no: "nb", // Norwegian Bokmål
+    };
+    return mapping[normalized] ?? normalized;
+  };
+
+  const normalizeBraveUiLang = (lang: string | undefined): string | undefined => {
+    if (!lang) {
+      return undefined;
+    }
+    const normalized = lang.toLowerCase();
+    const mapping: Record<string, string> = {
+      zh: "zh-CN", // Default Chinese to Simplified China
+      "zh-hans": "zh-CN",
+      "zh-hant": "zh-TW",
+      "zh-cn": "zh-CN",
+      "zh-tw": "zh-TW",
+      "zh-hk": "zh-HK",
+      en: "en-US",
+      pt: "pt-BR",
+      es: "es-ES",
+      fr: "fr-FR",
+      de: "de-DE",
+      it: "it-IT",
+      ja: "ja-JP",
+      ko: "ko-KR",
+      ru: "ru-RU",
+      pl: "pl-PL",
+      no: "no-NO",
+    };
+    return mapping[normalized] ?? normalized;
+  };
+
   const url = new URL(BRAVE_SEARCH_ENDPOINT);
   url.searchParams.set("q", params.query);
   url.searchParams.set("count", String(params.count));
   if (params.country) {
     url.searchParams.set("country", params.country);
   }
-  if (params.search_lang) {
-    url.searchParams.set("search_lang", params.search_lang);
+  const braveSearchLang = normalizeBraveSearchLang(params.search_lang);
+  if (braveSearchLang) {
+    url.searchParams.set("search_lang", braveSearchLang);
   }
-  if (params.ui_lang) {
-    url.searchParams.set("ui_lang", params.ui_lang);
+  const braveUiLang = normalizeBraveUiLang(params.ui_lang);
+  if (braveUiLang) {
+    url.searchParams.set("ui_lang", braveUiLang);
   }
   if (params.freshness) {
     url.searchParams.set("freshness", params.freshness);
