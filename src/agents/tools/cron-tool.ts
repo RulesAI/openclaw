@@ -22,6 +22,9 @@ const CRON_ACTIONS = ["status", "list", "add", "update", "remove", "run", "runs"
 const CRON_WAKE_MODES = ["now", "next-heartbeat"] as const;
 const CRON_RUN_MODES = ["due", "force"] as const;
 
+const CRON_RUN_DEFAULT_TIMEOUT_MS = 10 * 60_000; // 10 minutes — matches DEFAULT_JOB_TIMEOUT_MS
+const CRON_DEFAULT_TIMEOUT_MS = 60_000;
+
 const REMINDER_CONTEXT_MESSAGES_MAX = 10;
 const REMINDER_CONTEXT_PER_MESSAGE_MAX = 220;
 const REMINDER_CONTEXT_TOTAL_MAX = 700;
@@ -270,12 +273,17 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
     execute: async (_toolCallId, args) => {
       const params = args as Record<string, unknown>;
       const action = readStringParam(params, "action", { required: true });
+      // The `run` action blocks until the job finishes (isolated agentTurn jobs
+      // can take 6+ minutes). Use a longer default timeout so the RPC does not
+      // report a spurious "gateway timeout" while the job is still executing.
+      const defaultTimeoutMs =
+        action === "run" ? CRON_RUN_DEFAULT_TIMEOUT_MS : CRON_DEFAULT_TIMEOUT_MS;
       const gatewayOpts: GatewayCallOptions = {
         ...readGatewayCallOptions(params),
         timeoutMs:
           typeof params.timeoutMs === "number" && Number.isFinite(params.timeoutMs)
             ? params.timeoutMs
-            : 60_000,
+            : defaultTimeoutMs,
       };
 
       switch (action) {
