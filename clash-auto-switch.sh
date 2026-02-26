@@ -39,6 +39,13 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"; }
 
+# URL 编码函数
+urlencode() {
+    local string="$1"
+    python3 -c "import urllib.parse; print(urllib.parse.quote('''$string'''))" 2>/dev/null || \
+    echo "$string" | sed 's/ /%20/g'
+}
+
 # Clash API 调用
 clash_api_get() {
     local endpoint="$1"
@@ -118,9 +125,10 @@ switch_proxy() {
 # 测试节点延迟
 test_proxy_delay() {
     local proxy_name="$1"
-    local delay=$(clash_api_get "/proxies/${proxy_name}/delay?timeout=5000&url=http://www.gstatic.com/generate_204" | jq -r '.delay' 2>/dev/null)
+    local encoded_name=$(urlencode "$proxy_name")
+    local delay=$(clash_api_get "/proxies/${encoded_name}/delay?timeout=5000&url=http://www.gstatic.com/generate_204" | jq -r '.delay' 2>/dev/null)
 
-    if [ "$delay" != "null" ] && [ -n "$delay" ]; then
+    if [ "$delay" != "null" ] && [ -n "$delay" ] && [ "$delay" != "0" ]; then
         echo "$delay"
         return 0
     else
