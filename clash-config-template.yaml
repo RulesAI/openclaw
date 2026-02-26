@@ -1,0 +1,161 @@
+# Clash 智能代理配置模板
+# 功能: 自动选择最快节点，故障自动切换
+# 版本: 1.0
+
+# 混合端口（HTTP + SOCKS5）
+mixed-port: 7890
+
+# 允许局域网连接
+allow-lan: true
+
+# 代理模式: rule (规则) / global (全局) / direct (直连)
+mode: rule
+
+# 日志级别
+log-level: info
+
+# RESTful API
+external-controller: 0.0.0.0:9090
+
+# API 访问密钥
+secret: "openclaw2026"
+
+# DNS 配置
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - 114.114.114.114
+  fallback:
+    - 8.8.8.8
+    - 1.1.1.1
+    - tls://dns.google
+
+# 【重要】这里会被订阅链接自动填充
+# 如果使用订阅链接，proxies 部分会自动更新
+proxies:
+  # 订阅节点会自动添加到这里
+
+# 策略组配置（核心功能）
+proxy-groups:
+  # 主代理组 - 自动选择最快节点
+  - name: "PROXY"
+    type: url-test              # 自动测速选择
+    url: http://www.gstatic.com/generate_204
+    interval: 300               # 每5分钟测速一次
+    tolerance: 100              # 延迟差小于100ms不切换（避免频繁切换）
+    proxies:
+      - "美国优选"
+      - "新加坡优选"
+      - "自动选择"
+
+  # 美国节点优选
+  - name: "美国优选"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      # 这里会被订阅链接中的美国节点填充
+      # 示例:
+      # - "美国 01"
+      # - "美国 02"
+      # - "US 01"
+
+  # 新加坡节点优选
+  - name: "新加坡优选"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      # 这里会被订阅链接中的新加坡节点填充
+      # 示例:
+      # - "新加坡 01"
+      # - "新加坡 02"
+      # - "SG 01"
+
+  # 自动选择 - 从所有节点中选择最快的
+  - name: "自动选择"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 100
+    proxies:
+      # 这里会包含所有订阅节点
+
+  # 手动选择 - 备用方案
+  - name: "手动选择"
+    type: select
+    proxies:
+      - "PROXY"
+      - "美国优选"
+      - "新加坡优选"
+      - "自动选择"
+      - "DIRECT"
+
+  # 故障转移 - 第一个节点挂了自动切到下一个
+  - name: "故障转移"
+    type: fallback
+    url: http://www.gstatic.com/generate_204
+    interval: 180
+    proxies:
+      - "美国优选"
+      - "新加坡优选"
+      - "自动选择"
+
+# 分流规则
+rules:
+  # OpenAI
+  - DOMAIN-SUFFIX,openai.com,PROXY
+  - DOMAIN-SUFFIX,ai.com,PROXY
+  - DOMAIN-KEYWORD,openai,PROXY
+
+  # Anthropic / Claude
+  - DOMAIN-SUFFIX,anthropic.com,PROXY
+  - DOMAIN-SUFFIX,claude.ai,PROXY
+  - DOMAIN-KEYWORD,anthropic,PROXY
+  - DOMAIN-KEYWORD,claude,PROXY
+
+  # Google / Gemini
+  - DOMAIN-SUFFIX,google.com,PROXY
+  - DOMAIN-SUFFIX,googleapis.com,PROXY
+  - DOMAIN-SUFFIX,googleusercontent.com,PROXY
+  - DOMAIN-KEYWORD,google,PROXY
+  - DOMAIN-KEYWORD,gemini,PROXY
+
+  # Telegram
+  - DOMAIN-SUFFIX,telegram.org,PROXY
+  - DOMAIN-SUFFIX,t.me,PROXY
+  - DOMAIN-KEYWORD,telegram,PROXY
+
+  # GitHub
+  - DOMAIN-SUFFIX,github.com,PROXY
+  - DOMAIN-SUFFIX,githubusercontent.com,PROXY
+  - DOMAIN-SUFFIX,github.io,PROXY
+
+  # X.AI / Grok
+  - DOMAIN-SUFFIX,x.ai,PROXY
+  - DOMAIN-KEYWORD,grok,PROXY
+
+  # 其他常用 AI 服务
+  - DOMAIN-SUFFIX,huggingface.co,PROXY
+  - DOMAIN-SUFFIX,replicate.com,PROXY
+  - DOMAIN-SUFFIX,stability.ai,PROXY
+
+  # 中国大陆直连
+  - GEOIP,CN,DIRECT
+
+  # 局域网直连
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,10.0.0.0/8,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+
+  # 其他流量走代理（可改为 DIRECT 让默认流量直连）
+  - MATCH,PROXY
