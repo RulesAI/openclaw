@@ -1,0 +1,31 @@
+{
+  "ecs": {
+    "host": "47.97.196.187",
+    "user": "root",
+    "name": "Alibaba Cloud ECS"
+  },
+  "services": [
+    { "name": "WordPress", "url": "https://news.yrules.com", "expect": 200 },
+    {
+      "name": "WordPress API",
+      "url": "https://news.yrules.com/wp-json/wp/v2/posts?per_page=1",
+      "expect": [200, 401]
+    },
+    { "name": "AI Passport", "url": "https://accounts.yrules.com", "expect": 200 },
+    { "name": "Supabase", "url": "https://db.yrules.com", "expect": [200, 301, 401] }
+  ],
+  "ssl_domains": ["news.yrules.com", "accounts.yrules.com", "db.yrules.com"],
+  "ecs_containers": ["wordpress", "ai-passport", "nginx"],
+  "thresholds": {
+    "cpu_warning_pct": 80,
+    "cpu_critical_pct": 95,
+    "mem_warning_pct": 85,
+    "mem_critical_pct": 95,
+    "disk_warning_pct": 80,
+    "disk_critical_pct": 90,
+    "ssl_warning_days": 30,
+    "ssl_critical_days": 7,
+    "response_warning_s": 3.0,
+    "response_critical_s": 10.0
+  }
+}
