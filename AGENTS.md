@@ -51,6 +51,31 @@
   `pkill -9 -f openclaw-gateway || true; nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-gateway.log 2>&1 &`
 - Verify: `openclaw channels status --probe`, `ss -ltnp | rg 18789`, `tail -n 120 /tmp/openclaw-gateway.log`.
 
+## NAS (ZSpace) ops
+
+> **完整部署文档**：`.agents/NAS_DEPLOYMENT.md`（容器架构、Agent 清单、Cron 任务、网络、模型配置等）。
+
+- Host: `192.168.3.185`, port `10000`, user `13911033691`, password `Simon2028`.
+- SSH uses password auth (no pubkey). Requires `sshpass` (`brew install hudochenkov/sshpass/sshpass`).
+- Helper script: `~/.ssh/zspace-ssh` (expect-based, auto-enters password + sudo).
+- Quick command: `~/.ssh/zspace-ssh "docker exec openclaw-gateway <cmd>"`.
+- SCP: `sshpass -p "Simon2028" scp -P 10000 -o StrictHostKeyChecking=no <file> 13911033691@192.168.3.185:/tmp/`.
+- Docker cp into container: `docker cp /tmp/<file> openclaw-gateway:/home/node/.openclaw/<path>`.
+- Container: `openclaw-gateway`（单容器单进程，承载 9 个 Agent + 40 个 Cron 任务）。
+- Image: `openclaw:local-amd64`（本地构建），Node v22.22.0，`unless-stopped` 重启策略。
+- Bind mounts: 宿主机 `/data_ZR5D8EL4/openclaw/config` → 容器 `/home/node/.openclaw`（配置/agents/skills/sessions），宿主机 `/data_ZR5D8EL4/openclaw/workspace` → 容器 `/home/node/.openclaw/workspace`。
+- Network: `bridge` (172.17.0.2) + `openclaw-net` (172.18.0.3, 连接 Clash 代理 `http://clash:7890`)。
+- Ports: 18789 (gateway), 18790, 18791 (均映射到宿主机同端口)。
+- NAS 专门承载 Telegram 通道（5 个 bot：`@SCIAI_Marketing_bot`、`@linzihan_bot`、`@Mia_Ling_bot`、`@RL_Agent_Dev_bot`、`@EvoChain_LinX_bot`），不启用 WhatsApp。模型以低成本为主（primary: `gemini-2.5-flash`）。
+- Skills host path: `/data_ZR5D8EL4/openclaw/config/skills/` (bind-mounted to `/home/node/.openclaw/skills/` in container).
+- Skill deploy script: `~/.openclaw/skills/deploy-skill-to-nas.sh <skill-name>`.
+- Post-restart fixes (always run after container restart/recreate):
+  ```bash
+  docker exec -u root openclaw-gateway ln -sf /app/openclaw.mjs /usr/local/bin/openclaw
+  docker exec -u root openclaw-gateway chown -R node:node /home/node/.openclaw/skills/
+  ```
+- Code deploy: Mac 本地 `pnpm build` → `tar czf` → `scp` 到 NAS `/tmp/` → `docker cp dist/. openclaw-gateway:/app/dist/` → `docker restart` → 执行 post-restart fixes。详见 `.agents/NAS_DEPLOYMENT.md` 第 7 节。
+
 ## Build, Test, and Development Commands
 
 - Runtime baseline: Node **22+** (keep Node + Bun paths working).
