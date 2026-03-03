@@ -27,6 +27,9 @@ import type {
   OpenClawPluginDefinition,
   OpenClawPluginModule,
   PluginDiagnostic,
+  PluginHookAgentContext,
+  PluginHookBeforeCompactionEvent,
+  PluginHookRegistration,
   PluginLogger,
 } from "./types.js";
 
@@ -695,6 +698,26 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
     registryCache.set(cacheKey, registry);
   }
   setActivePluginRegistry(registry, cacheKey);
+  registerBuiltinCompactionMemoryHook(registry);
   initializeGlobalHookRunner(registry);
   return registry;
+}
+
+/**
+ * Register the built-in compaction-memory hook that saves conversation
+ * content to dated memory files before compaction discards them.
+ */
+function registerBuiltinCompactionMemoryHook(registry: PluginRegistry): void {
+  registry.typedHooks.push({
+    pluginId: "builtin:compaction-memory",
+    hookName: "before_compaction",
+    handler: async (event: PluginHookBeforeCompactionEvent, ctx: PluginHookAgentContext) => {
+      // Lazy-load to avoid circular deps and keep startup fast
+      const { handleBeforeCompaction } =
+        await import("../hooks/bundled/compaction-memory/handler.js");
+      await handleBeforeCompaction(event, ctx);
+    },
+    priority: 0,
+    source: "builtin",
+  } as PluginHookRegistration);
 }
