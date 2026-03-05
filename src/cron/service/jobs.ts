@@ -126,7 +126,11 @@ function assertDeliverySupport(job: Pick<CronJob, "sessionTarget" | "delivery">)
 export function findJobOrThrow(state: CronServiceState, id: string) {
   const job = state.store?.jobs.find((j) => j.id === id);
   if (!job) {
-    throw new Error(`unknown cron job id: ${id}`);
+    const totalJobs = state.store?.jobs.length ?? 0;
+    const storeLoaded = state.store !== null;
+    throw new Error(
+      `unknown cron job id: ${id} (store=${storeLoaded ? "loaded" : "null"}, jobs=${totalJobs})`,
+    );
   }
   return job;
 }

@@ -263,7 +263,9 @@ export async function add(state: CronServiceState, input: CronJobCreate) {
 export async function update(state: CronServiceState, id: string, patch: CronJobPatch) {
   return await locked(state, async () => {
     warnIfDisabled(state, "update");
-    await ensureLoaded(state, { skipRecompute: true });
+    // Force-reload from disk to prevent stale in-memory state from causing
+    // "unknown cron job id" errors after concurrent timer ticks or runs.
+    await ensureLoaded(state, { forceReload: true, skipRecompute: true });
     const job = findJobOrThrow(state, id);
     const now = state.deps.nowMs();
     applyJobPatch(job, patch);
@@ -317,7 +319,8 @@ export async function update(state: CronServiceState, id: string, patch: CronJob
 export async function remove(state: CronServiceState, id: string) {
   return await locked(state, async () => {
     warnIfDisabled(state, "remove");
-    await ensureLoaded(state);
+    // Force-reload from disk to stay in sync with concurrent timer writes.
+    await ensureLoaded(state, { forceReload: true });
     const before = state.store?.jobs.length ?? 0;
     if (!state.store) {
       return { ok: false, removed: false } as const;
