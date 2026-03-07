@@ -66,7 +66,8 @@
 - Bind mounts: 宿主机 `/data_ZR5D8EL4/openclaw/config` → 容器 `/home/node/.openclaw`（配置/agents/skills/sessions），宿主机 `/data_ZR5D8EL4/openclaw/workspace` → 容器 `/home/node/.openclaw/workspace`。
 - Network: `bridge` (172.17.0.2) + `openclaw-net` (172.18.0.3, 连接 Clash 代理 `http://clash:7890`)。
 - Ports: 18789 (gateway), 18790, 18791 (均映射到宿主机同端口)。
-- NAS 专门承载 Telegram 通道（5 个 bot：`@SCIAI_Marketing_bot`、`@linzihan_bot`、`@Mia_Ling_bot`、`@RL_Agent_Dev_bot`、`@EvoChain_LinX_bot`），不启用 WhatsApp。模型以低成本为主（primary: `gemini-2.5-flash`）。
+- NAS 专门承载 Telegram 通道（5 个 bot：`@SCIAI_Marketing_bot`、`@linzihan_bot`、`@Mia_Ling_bot`、`@RL_Agent_Dev_bot`、`@EvoChain_LinX_bot`），不启用 WhatsApp。
+- **新建 Agent 默认 LLM**: `google/gemini-2.5-flash`（全平台统一，包括 NAS、MateBook X）。除非有明确理由需要更强推理能力，否则所有新 Agent 统一使用此模型。
 - Skills host path: `/data_ZR5D8EL4/openclaw/config/skills/` (bind-mounted to `/home/node/.openclaw/skills/` in container).
 - Skill deploy script: `~/.openclaw/skills/deploy-skill-to-nas.sh <skill-name>`.
 - Post-restart fixes (always run after container restart/recreate):
